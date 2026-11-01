@@ -318,9 +318,9 @@ class PdfReportPage {
 
 List<PdfReportPage> buildPdfPageLayouts(
   Iterable<CurrencyReport> reports, {
-    required DateTime from,
-    required DateTime to,
-    required String currencyLabel,
+  required DateTime from,
+  required DateTime to,
+  required String currencyLabel,
 }) {
   final reportsByCurrency = {
     for (final report in reports) report.currency: report,
@@ -336,12 +336,13 @@ List<PdfReportPage> buildPdfPageLayouts(
     allRows.addAll(reportsByCurrency[currency]!.rows);
   }
   allRows.sort((left, right) {
-    final dateComparison = left.transaction.date.compareTo(right.transaction.date);
+    final dateComparison =
+        left.transaction.date.compareTo(right.transaction.date);
     if (dateComparison != 0) {
       return dateComparison;
     }
-    final currencyComparison =
-        left.transaction.currency.index.compareTo(right.transaction.currency.index);
+    final currencyComparison = left.transaction.currency.index
+        .compareTo(right.transaction.currency.index);
     if (currencyComparison != 0) {
       return currencyComparison;
     }
@@ -517,7 +518,7 @@ Widget _buildReportPageWidget(PdfReportPage page) {
                   )),
             ],
             const SizedBox(height: 6),
-            _buildFlutterTable(page),
+            buildPdfTable(page),
           ],
         ),
       ),
@@ -525,7 +526,7 @@ Widget _buildReportPageWidget(PdfReportPage page) {
   );
 }
 
-Widget _buildFlutterTable(PdfReportPage page) {
+Widget buildPdfTable(PdfReportPage page) {
   final rows = <TableRow>[
     TableRow(
       decoration: const BoxDecoration(color: Color(0xffd6d6d6)),
@@ -568,17 +569,18 @@ Widget _buildFlutterTable(PdfReportPage page) {
             _tableCell(transaction.category),
             _tableCell(transaction.note ?? ''),
             _tableMoneyCell(
-              isIncome ? _formatPdfMoney(transaction.amount, transaction.currency) : '',
+              isIncome
+                  ? _formatPdfMoney(transaction.amount, transaction.currency)
+                  : '',
               isIncome ? transaction.amount : 0,
             ),
             _tableMoneyCell(
-              isIncome ? '' : _formatPdfMoney(transaction.amount, transaction.currency),
+              isIncome
+                  ? ''
+                  : _formatPdfMoney(transaction.amount, transaction.currency),
               isIncome ? 0 : transaction.amount,
             ),
-            _tableMoneyCell(
-              _formatPdfMoney(row.runningBalance, transaction.currency),
-              row.runningBalance,
-            ),
+            _tableCell(''),
           ],
         ),
       );
@@ -589,7 +591,7 @@ Widget _buildFlutterTable(PdfReportPage page) {
     for (final currency in page.currencies) {
       final totalIncome = page.totalIncomeByCurrency[currency] ?? 0;
       final totalExpense = page.totalExpenseByCurrency[currency] ?? 0;
-      final balance = page.closingBalances[currency] ?? 0;
+      final periodBalance = totalIncome - totalExpense;
       rows.add(
         TableRow(
           decoration: const BoxDecoration(color: Color(0xffeeeeee)),
@@ -609,8 +611,8 @@ Widget _buildFlutterTable(PdfReportPage page) {
               bold: true,
             ),
             _tableMoneyCell(
-              _formatPdfMoney(balance, currency),
-              balance,
+              _formatPdfMoney(periodBalance, currency),
+              periodBalance,
               bold: true,
             ),
           ],

@@ -227,9 +227,70 @@ void main() {
     expect(pdfPageCount(bytes), 1);
     expect(ExportService.reportTitle, 'ລາຍງານລາຍຮັບລາຍຈ່າຍ');
     expect(
-      ExportService.dateRangeLabel(DateTime(2026, 10, 1), DateTime(2026, 10, 31)),
+      ExportService.dateRangeLabel(
+          DateTime(2026, 10, 1), DateTime(2026, 10, 31)),
       'ວັນທີ 01/10/2026 ຫາວັນທີ 31/10/2026',
     );
+  });
+
+  testWidgets(
+      'PDF transaction balance cells are empty and totals show period balance',
+      (tester) async {
+    final report = buildCurrencyReports(
+      [
+        _transaction(
+          id: 1,
+          currency: Currency.LAK,
+          amount: 9377500,
+          type: TransactionType.income,
+          date: start,
+        ),
+        _transaction(
+          id: 2,
+          currency: Currency.THB,
+          amount: 4275,
+          type: TransactionType.income,
+          date: start,
+        ),
+        _transaction(
+          id: 3,
+          currency: Currency.USD,
+          amount: 10000,
+          type: TransactionType.expense,
+          date: start,
+        ),
+      ],
+      from: start,
+      to: end,
+    );
+    final page = buildPdfPageLayouts(
+      report,
+      from: start,
+      to: end,
+      currencyLabel: 'LAK',
+    ).single;
+
+    await tester.pumpWidget(
+      MaterialApp(home: buildPdfTable(page)),
+    );
+    final table = tester.widget<Table>(find.byType(Table));
+
+    expect(table.children.length, 7);
+    for (final row in table.children.skip(1).take(3)) {
+      final cell = row.children.last as Padding;
+      final text = cell.child as Text;
+      expect(text.data, isEmpty);
+    }
+
+    final totalValues = table.children.skip(4).take(3).map((row) {
+      final cell = row.children.last as Padding;
+      return (cell.child as Text).data;
+    }).toList();
+    expect(totalValues, ['9,377,500₭', '42.75 THB', r'-100.00 $']);
+
+    final usdTotal = table.children[6].children.last as Padding;
+    final usdText = usdTotal.child as Text;
+    expect(usdText.style?.color, Colors.red);
   });
 
   test('currency symbol appears after the number', () {
