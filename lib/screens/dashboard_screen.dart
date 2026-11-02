@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/currency.dart';
 import '../models/summary_period.dart';
+import '../models/transaction_type.dart';
+import '../models/wallet_transaction.dart';
 import '../providers/summary_providers.dart';
 import '../utils/money_format.dart';
 import 'analytics_screen.dart';
@@ -39,94 +41,665 @@ class DashboardScreen extends ConsumerWidget {
       DashboardCurrencyFilter.usd => const [Currency.USD],
       DashboardCurrencyFilter.all => _currencies,
     };
+    final historyCurrency = switch (selectedFilter) {
+      DashboardCurrencyFilter.lak => Currency.LAK,
+      DashboardCurrencyFilter.thb => Currency.THB,
+      DashboardCurrencyFilter.usd => Currency.USD,
+      DashboardCurrencyFilter.all => null,
+    };
+    final transactions = ref.watch(transactionHistoryProvider(historyCurrency));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('TriWallet')),
+      backgroundColor: const Color(0xFFF7F8F6),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const AnalyticsScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.analytics_outlined),
-            label: const Text('ວິເຄາະ'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const HistoryScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.history),
-            label: const Text('ປະຫວັດ'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ExportScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.file_download_outlined),
-            label: const Text('Export'),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<DashboardCurrencyFilter>(
-              segments: const [
-                ButtonSegment(
-                  value: DashboardCurrencyFilter.lak,
-                  label: Text('LAK'),
-                ),
-                ButtonSegment(
-                  value: DashboardCurrencyFilter.thb,
-                  label: Text('THB'),
-                ),
-                ButtonSegment(
-                  value: DashboardCurrencyFilter.usd,
-                  label: Text('USD'),
-                ),
-                ButtonSegment(
-                  value: DashboardCurrencyFilter.all,
-                  label: Text('ALL'),
-                ),
-              ],
-              selected: {selectedFilter},
-              onSelectionChanged: (selection) {
-                ref.read(dashboardCurrencyFilterProvider.notifier).state =
-                    selection.first;
-              },
+          const _DashboardHeader(),
+          const SizedBox(height: 28),
+          const Text(
+            'YOUR MONEY, AT A GLANCE',
+            style: TextStyle(
+              color: Color(0xFF8A918E),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
             ),
           ),
+          const SizedBox(height: 6),
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Wallet overview',
+                  style: TextStyle(
+                    color: Color(0xFF17201D),
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              _UpToDate(),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: _DashboardAction(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Analytics',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AnalyticsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DashboardAction(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'History',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HistoryScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DashboardAction(
+                  icon: Icons.upload_file_rounded,
+                  label: 'Export',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ExportScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
+          _CurrencyFilter(
+            selected: selectedFilter,
+            onSelected: (value) {
+              ref.read(dashboardCurrencyFilterProvider.notifier).state = value;
+            },
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Expanded(child: _WalletsHeading()),
+              const Text(
+                'All-time totals',
+                style: TextStyle(
+                  color: Color(0xFF9AA09D),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           for (final currency in visibleCurrencies)
             _CurrencySummaryCard(
               key: ValueKey(currency),
               currency: currency,
             ),
+          const SizedBox(height: 10),
+          const _RecentTransactionsHeading(),
+          const SizedBox(height: 12),
+          _RecentTransactions(transactions: transactions),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const QuickAddScreen(),
+      bottomNavigationBar: _DashboardBottomNavigation(onAdd: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const QuickAddScreen(),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _RecentTransactionsHeading extends StatelessWidget {
+  const _RecentTransactionsHeading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Recent transactions',
+            style: TextStyle(
+              color: Color(0xFF17201D),
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('ເພີ່ມລາຍການ'),
+          ),
+        ),
+        Text(
+          'Latest activity',
+          style: TextStyle(
+            color: Color(0xFF9AA09D),
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecentTransactions extends StatelessWidget {
+  const _RecentTransactions({required this.transactions});
+
+  final AsyncValue<List<WalletTransaction>> transactions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (transactions.isLoading) {
+      return const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (transactions.hasError) {
+      return const Text('Unable to load recent transactions');
+    }
+    final items = transactions.requireValue.take(5).toList();
+    if (items.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const Text(
+          'No recent transactions',
+          style: TextStyle(color: Color(0xFF8A918E)),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            _RecentTransactionRow(transaction: items[index]),
+            if (index < items.length - 1)
+              const Divider(
+                height: 1,
+                indent: 68,
+                color: Color(0xFFEFEFED),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentTransactionRow extends StatelessWidget {
+  const _RecentTransactionRow({required this.transaction});
+
+  final WalletTransaction transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIncome = transaction.type == TransactionType.income;
+    final amount = formatMoney(transaction.amount.abs(), transaction.currency);
+    final formattedAmount = '${isIncome ? '+' : '-'}$amount';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color:
+                  (isIncome ? const Color(0xFF24B56A) : const Color(0xFFEF6C57))
+                      .withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isIncome ? Icons.south_west_rounded : Icons.north_east_rounded,
+              color:
+                  isIncome ? const Color(0xFF24B56A) : const Color(0xFFEF6C57),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction.category,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF17201D),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${transaction.currency.name}  •  '
+                  '${transaction.date.day.toString().padLeft(2, '0')}/'
+                  '${transaction.date.month.toString().padLeft(2, '0')}',
+                  style: const TextStyle(
+                    color: Color(0xFF9AA09D),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            formattedAmount,
+            style: TextStyle(
+              color:
+                  isIncome ? const Color(0xFF24B56A) : const Color(0xFFE5484D),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardBottomNavigation extends StatelessWidget {
+  const _DashboardBottomNavigation({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 76,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x18000000),
+              blurRadius: 24,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _BottomNavItem(
+              icon: Icons.home_rounded,
+              label: 'Home',
+              active: true,
+            ),
+            _BottomNavItem(
+              icon: Icons.analytics_outlined,
+              label: 'Analytics',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AnalyticsScreen(),
+                  ),
+                );
+              },
+            ),
+            _AddNavButton(onTap: onAdd),
+            _BottomNavItem(
+              icon: Icons.receipt_long_outlined,
+              label: 'History',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const HistoryScreen(),
+                  ),
+                );
+              },
+            ),
+            const _BottomNavItem(
+              icon: Icons.person_outline_rounded,
+              label: 'Profile',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  const _BottomNavItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? const Color(0xFF24B56A) : const Color(0xFF8A918E);
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: SizedBox(
+        width: 58,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 23),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: active ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddNavButton extends StatelessWidget {
+  const _AddNavButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 58,
+        height: 58,
+        decoration: const BoxDecoration(
+          color: Color(0xFF24B56A),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x4024B56A),
+              blurRadius: 14,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 31),
+      ),
+    );
+  }
+}
+
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF24B56A),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: const Icon(
+            Icons.account_balance_wallet_rounded,
+            color: Colors.white,
+            size: 25,
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            'TriWallet',
+            style: TextStyle(
+              color: Color(0xFF17201D),
+              fontSize: 21,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF0F2F1),
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Color(0xFF242B28),
+            shape: BoxShape.circle,
+          ),
+          child: const Text(
+            'AK',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UpToDate extends StatelessWidget {
+  const _UpToDate();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle, color: Color(0xFF24B56A), size: 8),
+        SizedBox(width: 6),
+        Text(
+          'Up to date',
+          style: TextStyle(
+            color: Color(0xFF8A918E),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardAction extends StatelessWidget {
+  const _DashboardAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE7EAE8)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 19, color: const Color(0xFF59615E)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF59615E),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrencyFilter extends StatelessWidget {
+  const _CurrencyFilter({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final DashboardCurrencyFilter selected;
+  final ValueChanged<DashboardCurrencyFilter> onSelected;
+
+  static const _values = [
+    (DashboardCurrencyFilter.lak, 'LAK'),
+    (DashboardCurrencyFilter.thb, 'THB'),
+    (DashboardCurrencyFilter.usd, 'USD'),
+    (DashboardCurrencyFilter.all, 'ALL'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECEFED),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          for (final value in _values)
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => onSelected(value.$1),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected == value.$1
+                        ? const Color(0xFF24B56A)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    value.$2,
+                    style: TextStyle(
+                      color: selected == value.$1
+                          ? Colors.white
+                          : const Color(0xFF747B78),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletsHeading extends StatelessWidget {
+  const _WalletsHeading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Your wallets',
+          style: TextStyle(
+            color: Color(0xFF17201D),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(width: 9),
+        _CountBadge(),
+      ],
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 27,
+      height: 27,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFFE9ECEA),
+        shape: BoxShape.circle,
+      ),
+      child: const Text(
+        '3',
+        style: TextStyle(
+          color: Color(0xFF59615E),
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -142,12 +715,6 @@ class _CurrencySummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentMonth = ref.watch(
-      summaryProvider((
-        currency: currency,
-        period: SummaryPeriod.currentMonth,
-      )),
-    );
     final allTime = ref.watch(
       summaryProvider((
         currency: currency,
@@ -155,82 +722,197 @@ class _CurrencySummaryCard extends ConsumerWidget {
       )),
     );
 
-    if (currentMonth.isLoading || allTime.isLoading) {
-      return const Card(
-        child: SizedBox(
-          height: 180,
-          child: Center(child: CircularProgressIndicator()),
+    if (allTime.isLoading) {
+      return Container(
+        height: 220,
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (allTime.hasError) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Text(
+          'Unable to load ${currency.name} summary: ${allTime.error}',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       );
     }
 
-    final error = currentMonth.error ?? allTime.error;
-    if (error != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            'Unable to load ${currency.name} summary: $error',
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+    final summary = allTime.requireValue;
+    final currencyName = switch (currency) {
+      Currency.LAK => 'Lao kip',
+      Currency.THB => 'Thai baht',
+      Currency.USD => 'US dollar',
+    };
+    final iconColor = switch (currency) {
+      Currency.LAK => const Color(0xFF16A765),
+      Currency.THB => const Color(0xFFEF6C57),
+      Currency.USD => const Color(0xFF4D8EDB),
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: iconColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currency.name,
+                    style: const TextStyle(
+                      color: Color(0xFF17201D),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    currencyName,
+                    style: const TextStyle(
+                      color: Color(0xFF8A918E),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Total balance',
+            style: TextStyle(
+              color: Color(0xFF8A918E),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            formatMoney(summary.balance, currency),
+            style: TextStyle(
+              color: summary.balance < 0
+                  ? const Color(0xFFE5484D)
+                  : const Color(0xFF17201D),
+              fontSize: 29,
+              height: 1.1,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Divider(height: 1, color: Color(0xFFE8EBE9)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryStat(
+                  icon: Icons.south_west_rounded,
+                  iconColor: const Color(0xFF24B56A),
+                  label: 'Total income',
+                  amount: formatMoney(summary.income.abs(), currency),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SummaryStat(
+                  icon: Icons.north_east_rounded,
+                  iconColor: const Color(0xFFEF6C57),
+                  label: 'Total expenses',
+                  amount: formatMoney(summary.expense.abs(), currency),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryStat extends StatelessWidget {
+  const _SummaryStat({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.amount,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF8A918E),
+            fontSize: 12,
           ),
         ),
-      );
-    }
-
-    final monthSummary = currentMonth.requireValue;
-    final allTimeSummary = allTime.requireValue;
-    final isEmpty = allTimeSummary.income == 0 && allTimeSummary.expense == 0;
-    final currencyLabel = switch (currency) {
-      Currency.LAK => '💰 LAK Balance',
-      Currency.THB => '💵 THB Balance',
-      Currency.USD => '💲 USD Balance',
-    };
-    final laoCaption = switch (currency) {
-      Currency.LAK => 'ລາຍຮັບ LAK - ລາຍຈ່າຍ LAK',
-      Currency.THB => 'ລາຍຮັບ THB - ລາຍຈ່າຍ THB',
-      Currency.USD => 'ລາຍຮັບ USD - ລາຍຈ່າຍ USD',
-    };
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 7),
+        Row(
           children: [
-            Text(currencyLabel, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(laoCaption),
-            const SizedBox(height: 12),
-            Text(
-              formatMoney(monthSummary.balance, currency),
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: monthSummary.balance < 0 ? Colors.red : null,
-                    fontWeight: FontWeight.bold,
-                  ),
+            Icon(icon, color: iconColor, size: 16),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                amount,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF17201D),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            Text(
-              'ຍອດຄົງເຫຼືອລວມ: '
-              '${formatMoney(allTimeSummary.balance, currency)}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: allTimeSummary.balance < 0 ? Colors.red : null,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'ລາຍຮັບທັງໝົດ: '
-              '${formatMoney(monthSummary.income, currency)}',
-            ),
-            Text(
-              'ລາຍຈ່າຍທັງໝົດ: '
-              '${formatMoney(monthSummary.expense, currency)}',
-            ),
-            if (isEmpty) ...[
-              const SizedBox(height: 12),
-              const Text('ຍັງບໍ່ມີລາຍການ'),
-            ],
           ],
         ),
-      ),
+      ],
     );
   }
 }
