@@ -43,6 +43,137 @@ void main() {
     expect(_report(reports, Currency.LAK).openingBalance, 1000);
   });
 
+  test('opening and closing balances include transactions before and in range',
+      () {
+    final reports = buildCurrencyReports(
+      [
+        _transaction(
+          id: 1,
+          currency: Currency.LAK,
+          amount: 10377500,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 31),
+        ),
+        _transaction(
+          id: 2,
+          currency: Currency.LAK,
+          amount: 1000000,
+          type: TransactionType.income,
+          date: DateTime(2026, 11, 2),
+        ),
+      ],
+      from: DateTime(2026, 11, 1),
+      to: DateTime(2026, 11, 2),
+      openingBalances: const {Currency.LAK: 10377500},
+    );
+    final report = _report(reports, Currency.LAK);
+
+    expect(report.rows, hasLength(1));
+    expect(report.openingBalance, 10377500);
+    expect(report.closingBalance, 11377500);
+  });
+
+  test('opening balance includes transactions on 31 October', () {
+    final reports = buildCurrencyReports(
+      [
+        _transaction(
+          id: 1,
+          currency: Currency.LAK,
+          amount: 9377500,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 23),
+        ),
+        _transaction(
+          id: 2,
+          currency: Currency.LAK,
+          amount: 1000000,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 31),
+        ),
+      ],
+      from: DateTime(2026, 11, 1),
+      to: DateTime(2026, 11, 2),
+    );
+    final report = _report(reports, Currency.LAK);
+
+    expect(report.openingBalance, 10377500);
+  });
+
+  test('ALL opening and closing balances include transactions outside filtered rows',
+      () {
+    final reports = buildCurrencyReports(
+      [
+        _transaction(
+          id: 1,
+          currency: Currency.LAK,
+          amount: 9377500,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 23),
+        ),
+        _transaction(
+          id: 2,
+          currency: Currency.LAK,
+          amount: 1000000,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 31),
+        ),
+        _transaction(
+          id: 3,
+          currency: Currency.LAK,
+          amount: 1000000,
+          type: TransactionType.income,
+          date: DateTime(2026, 11, 2),
+        ),
+      ],
+      from: DateTime(2026, 11, 1),
+      to: DateTime(2026, 11, 2),
+    );
+    final report = _report(reports, Currency.LAK);
+
+    expect(report.openingBalance, 10377500);
+    expect(report.closingBalance, 11377500);
+    expect(
+      report.closingBalance,
+      report.openingBalance + report.totalIncome - report.totalExpense,
+    );
+  });
+
+  test('long export closing balance includes eleven period rows', () {
+    final transactions = [
+      _transaction(
+        id: 1,
+        currency: Currency.LAK,
+        amount: 10377500,
+        type: TransactionType.income,
+        date: DateTime(2026, 9, 30),
+      ),
+      for (var index = 0; index < 11; index++)
+        _transaction(
+          id: index + 2,
+          currency: Currency.LAK,
+          amount: index < 10 ? 100000 : (index == 10 ? 1000000 : 0),
+          type: index.isEven && index < 10
+              ? TransactionType.income
+              : index < 10
+                  ? TransactionType.expense
+                  : TransactionType.income,
+          date: index < 10
+              ? DateTime(2026, 10, 1).add(Duration(days: index))
+              : DateTime(2026, 11, 2),
+        ),
+    ];
+    final reports = buildCurrencyReports(
+      transactions,
+      from: DateTime(2026, 10, 1),
+      to: DateTime(2026, 11, 2),
+      openingBalances: const {Currency.LAK: 10377500},
+    );
+    final report = _report(reports, Currency.LAK);
+
+    expect(report.rows, hasLength(11));
+    expect(report.closingBalance, 11377500);
+  });
+
   test('running balance restarts per currency and excludes other currencies',
       () {
     final reports = buildCurrencyReports(
@@ -291,6 +422,69 @@ void main() {
     final usdTotal = table.children[6].children.last as Padding;
     final usdText = usdTotal.child as Text;
     expect(usdText.style?.color, Colors.red);
+  });
+
+  testWidgets('PDF total rows show closing balances for every currency',
+      (tester) async {
+    final reports = buildCurrencyReports(
+      [
+        _transaction(
+          id: 1,
+          currency: Currency.LAK,
+          amount: 9377500,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 23),
+        ),
+        _transaction(
+          id: 2,
+          currency: Currency.LAK,
+          amount: 1000000,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 31),
+        ),
+        _transaction(
+          id: 3,
+          currency: Currency.THB,
+          amount: 4275,
+          type: TransactionType.income,
+          date: DateTime(2026, 10, 31),
+        ),
+        _transaction(
+          id: 4,
+          currency: Currency.USD,
+          amount: 10000,
+          type: TransactionType.expense,
+          date: DateTime(2026, 10, 31),
+        ),
+        _transaction(
+          id: 5,
+          currency: Currency.LAK,
+          amount: 1000000,
+          type: TransactionType.income,
+          date: DateTime(2026, 11, 2),
+        ),
+      ],
+      from: DateTime(2026, 11, 1),
+      to: DateTime(2026, 11, 2),
+    );
+    final page = buildPdfPageLayouts(
+      reports,
+      from: DateTime(2026, 11, 1),
+      to: DateTime(2026, 11, 2),
+      currencyLabel: 'ALL',
+    ).single;
+
+    await tester.pumpWidget(MaterialApp(home: buildPdfTable(page)));
+    final table = tester.widget<Table>(find.byType(Table));
+    final totalRows = table.children.skip(1).where((row) =>
+        ((row.children.first as Padding).child as Text).data == 'ລວມ');
+
+    final closingValues = totalRows.map((row) {
+      final cell = row.children.last as Padding;
+      return (cell.child as Text).data;
+    }).toList();
+
+    expect(closingValues, ['11,377,500₭', '42.75 THB', r'-100.00 $']);
   });
 
   test('currency symbol appears after the number', () {

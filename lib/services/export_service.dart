@@ -48,22 +48,24 @@ List<CurrencyReport> buildCurrencyReports(
   Iterable<WalletTransaction> transactions, {
   required DateTime from,
   required DateTime to,
+  Map<Currency, int>? openingBalances,
 }) {
   final start = DateTime(from.year, from.month, from.day);
   final endExclusive = DateTime(to.year, to.month, to.day + 1);
   final allTransactions = transactions.toList(growable: false);
 
   return Currency.values.map((currency) {
-    final openingBalance = allTransactions
-        .where(
-          (transaction) =>
-              transaction.currency == currency &&
-              transaction.date.isBefore(start),
-        )
-        .fold<int>(
-          0,
-          (balance, transaction) => balance + _signedAmount(transaction),
-        );
+    final openingBalance = openingBalances?[currency] ??
+        allTransactions
+            .where(
+              (transaction) =>
+                  transaction.currency == currency &&
+                  transaction.date.isBefore(start),
+            )
+            .fold<int>(
+              0,
+              (balance, transaction) => balance + _signedAmount(transaction),
+            );
     final periodTransactions = allTransactions
         .where(
           (transaction) =>
@@ -212,6 +214,7 @@ class ExportService {
     Currency? currency,
     required DateTime from,
     required DateTime to,
+    Map<Currency, int>? openingBalances,
   }) async {
     final overlay = Overlay.of(context, rootOverlay: true);
     final reports = buildCurrencyReports(
@@ -221,6 +224,7 @@ class ExportService {
               .where((transaction) => transaction.currency == currency),
       from: from,
       to: to,
+      openingBalances: openingBalances,
     ).where((report) => currency == null || report.currency == currency);
     await _assetBundle.load(_fontAsset);
     final pages = buildPdfPageLayouts(
@@ -257,6 +261,7 @@ class ExportService {
     Currency? currency,
     required DateTime from,
     required DateTime to,
+    Map<Currency, int>? openingBalances,
   }) async {
     final bytes = await buildPdf(
       context,
@@ -264,6 +269,7 @@ class ExportService {
       currency: currency,
       from: from,
       to: to,
+      openingBalances: openingBalances,
     );
     final directory = await getApplicationDocumentsDirectory();
     final currencyLabel = currency?.name ?? 'ALL';
@@ -591,7 +597,10 @@ Widget buildPdfTable(PdfReportPage page) {
     for (final currency in page.currencies) {
       final totalIncome = page.totalIncomeByCurrency[currency] ?? 0;
       final totalExpense = page.totalExpenseByCurrency[currency] ?? 0;
-      final periodBalance = totalIncome - totalExpense;
+      final openingBalance = page.openingBalances[currency] ?? 0;
+      final closingBalance =
+          page.closingBalances[currency] ??
+              openingBalance + totalIncome - totalExpense;
       rows.add(
         TableRow(
           decoration: const BoxDecoration(color: Color(0xffeeeeee)),
@@ -611,8 +620,8 @@ Widget buildPdfTable(PdfReportPage page) {
               bold: true,
             ),
             _tableMoneyCell(
-              _formatPdfMoney(periodBalance, currency),
-              periodBalance,
+              _formatPdfMoney(closingBalance, currency),
+              closingBalance,
               bold: true,
             ),
           ],

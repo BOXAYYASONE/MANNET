@@ -35,10 +35,23 @@ class TriWalletApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TriWallet',
+      title: 'MNCK',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0F9D7A),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF7F9F8),
+        cardColor: Colors.white,
         fontFamily: 'Phetsarath OT',
+        cardTheme: const CardThemeData(
+          color: Colors.white,
+          elevation: 2,
+          shadowColor: Color(0x14000000),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
+        ),
       ),
       home: const DashboardScreen(),
     );

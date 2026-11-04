@@ -139,15 +139,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                       child: Text('ບໍ່ມີລາຍການໃນຊ່ວງນີ້'),
                     ),
                   FilledButton.icon(
-                    onPressed:
-                        inRange.isEmpty ? null : () => _exportCsv(inRange),
+                    onPressed: inRange.isEmpty ? null : () => _exportCsv(items),
                     icon: const Icon(Icons.table_view),
                     label: const Text('Export CSV'),
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed:
-                        inRange.isEmpty ? null : () => _exportPdf(inRange),
+                    onPressed: inRange.isEmpty ? null : () => _exportPdf(items),
                     icon: const Icon(Icons.picture_as_pdf),
                     label: const Text('Export PDF'),
                   ),
@@ -199,12 +197,24 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
   Future<void> _exportPdf(List<WalletTransaction> transactions) async {
     try {
+      final repository = ref.read(transactionRepositoryProvider);
+      final openingBalances = <Currency, int>{};
+      final currencies =
+          _currency == null ? Currency.values : <Currency>[_currency!];
+      for (final currency in currencies) {
+        openingBalances[currency] =
+            await repository.getOpeningBalance(currency, _from);
+      }
+      if (!mounted) {
+        return;
+      }
       final file = await _exportService.savePdf(
         context,
         transactions,
         currency: _currency,
         from: _from,
         to: _to,
+        openingBalances: openingBalances,
       );
       _showMessage('PDF ບັນທຶກສຳເລັດ: ${file.path}');
     } catch (error) {

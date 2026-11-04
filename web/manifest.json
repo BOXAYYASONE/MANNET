@@ -1,6 +1,6 @@
 {
-    "name": "triwallet",
-    "short_name": "triwallet",
+    "name": "MNCK - MANNET CoinKeep",
+    "short_name": "MNCK",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

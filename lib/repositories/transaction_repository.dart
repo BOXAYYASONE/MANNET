@@ -83,6 +83,13 @@ class TransactionRepository {
     return TransactionSummary(income: income, expense: expense);
   }
 
+  Future<int> getOpeningBalance(Currency currency, DateTime before) async {
+    final start = DateTime(before.year, before.month, before.day);
+    final income = await _sumBefore(currency, TransactionType.income, start);
+    final expense = await _sumBefore(currency, TransactionType.expense, start);
+    return income - expense;
+  }
+
   Stream<TransactionSummary> watchSummary(
     Currency currency,
     DateRange range,
@@ -184,6 +191,22 @@ class TransactionRepository {
         .typeEqualTo(type)
         .and()
         .dateBetween(range.from, range.to, includeUpper: false)
+        .amountProperty()
+        .sum();
+  }
+
+  Future<int> _sumBefore(
+    Currency currency,
+    TransactionType type,
+    DateTime before,
+  ) {
+    return _isar.walletTransactions
+        .filter()
+        .currencyEqualTo(currency)
+        .and()
+        .typeEqualTo(type)
+        .and()
+        .dateLessThan(before)
         .amountProperty()
         .sum();
   }

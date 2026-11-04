@@ -28,7 +28,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('TriWallet'), findsOneWidget);
+    expect(find.text('MNCK'), findsOneWidget);
   });
 
   testWidgets('Dashboard navigates to CSV and PDF export', (tester) async {
@@ -194,6 +194,11 @@ class _StubTransactionRepository implements TransactionRepository {
   @override
   Future<TransactionSummary> getSummary(Currency currency, DateRange range) {
     return Future.value(const TransactionSummary(income: 0, expense: 0));
+  }
+
+  @override
+  Future<int> getOpeningBalance(Currency currency, DateTime before) async {
+    return 0;
   }
 
   @override
