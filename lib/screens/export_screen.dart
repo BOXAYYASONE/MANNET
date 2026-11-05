@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/currency.dart';
 import '../models/wallet_transaction.dart';
@@ -190,6 +191,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         to: _to,
       );
       _showMessage('CSV ບັນທຶກສຳເລັດ: ${file.path}');
+      await Share.shareXFiles([XFile(file.path)]);
     } catch (error) {
       _showMessage('ສົ່ງອອກ CSV ບໍ່ສຳເລັດ: $error', isError: true);
     }
@@ -217,6 +219,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         openingBalances: openingBalances,
       );
       _showMessage('PDF ບັນທຶກສຳເລັດ: ${file.path}');
+      await Share.shareXFiles([XFile(file.path)]);
     } catch (error) {
       _showMessage('ສົ່ງອອກ PDF ບໍ່ສຳເລັດ: $error', isError: true);
     }

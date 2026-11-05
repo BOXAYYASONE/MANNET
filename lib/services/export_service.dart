@@ -194,7 +194,7 @@ class ExportService {
     required DateTime from,
     required DateTime to,
   }) async {
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await _exportDirectory();
     final currencyLabel = currency?.name ?? 'ALL';
     final fileName =
         'triwallet_${currencyLabel}_${_dateFilePart(from)}_${_dateFilePart(to)}.csv';
@@ -271,12 +271,39 @@ class ExportService {
       to: to,
       openingBalances: openingBalances,
     );
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await _exportDirectory();
     final currencyLabel = currency?.name ?? 'ALL';
     final fileName =
         'triwallet_report_${currencyLabel}_${_dateFilePart(from)}_${_dateFilePart(to)}.pdf';
     return File('${directory.path}${Platform.pathSeparator}$fileName')
         .writeAsBytes(bytes, flush: true);
+  }
+
+  Future<Directory> _exportDirectory() async {
+    if (Platform.isAndroid) {
+      final publicDownloads = Directory('/storage/emulated/0/Download/MNCK');
+      try {
+        await publicDownloads.create(recursive: true);
+        return publicDownloads;
+      } catch (_) {
+        final downloads = await getDownloadsDirectory();
+        if (downloads != null) {
+          final fallback = Directory(
+            '${downloads.path}${Platform.pathSeparator}MNCK',
+          );
+          await fallback.create(recursive: true);
+          return fallback;
+        }
+      }
+    }
+
+    final documents = await getApplicationDocumentsDirectory();
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return documents;
+    }
+    final mnck = Directory('${documents.path}${Platform.pathSeparator}MNCK');
+    await mnck.create(recursive: true);
+    return mnck;
   }
 }
 
