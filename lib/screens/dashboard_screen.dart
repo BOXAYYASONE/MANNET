@@ -564,11 +564,6 @@ class _DashboardAction extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (label == 'ສົ່ງອອກ')
-                const Opacity(
-                  opacity: 0,
-                  child: Text('Export'),
-                ),
             ],
           ),
         ),
