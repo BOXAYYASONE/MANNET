@@ -44,7 +44,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Export'));
+    await tester.tap(find.byIcon(Icons.upload_file_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Export CSV'), findsOneWidget);
@@ -145,6 +145,64 @@ void main() {
     expect(find.byType(BarChart), findsNWidgets(3));
     expect(find.text('ລາຍຈ່າຍຕາມໝວດໝູ່'), findsNWidgets(3));
   });
+
+  testWidgets('Quick Add parses THB and LAK amounts to integer minor units',
+      (tester) async {
+    Future<String> formatAmount(Currency currency, String input) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(
+              _StubTransactionRepository(),
+            ),
+          ],
+          child: MaterialApp(
+            home: QuickAddScreen(key: ValueKey('quick-add-$input')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(currency.name));
+      await tester.pump();
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), input);
+      await tester.pump();
+      return _amountText(tester, fields.at(0));
+    }
+
+    expect(await formatAmount(Currency.THB, '1,250.5'), '1,250.5');
+    expect(await formatAmount(Currency.THB, '1,250.50'), '1,250.50');
+    expect(await formatAmount(Currency.LAK, '100,000'), '100,000');
+    expect(await formatAmount(Currency.LAK, '100.5'), '100');
+
+    expect(_parseAmountForTest('1,250.5', Currency.THB), 125050);
+    expect(_parseAmountForTest('1,250.50', Currency.THB), 125050);
+    expect(_parseAmountForTest('100,000', Currency.LAK), 100000);
+    expect(_parseAmountForTest('100.5', Currency.LAK), isNull);
+  });
+}
+
+int? _parseAmountForTest(String input, Currency currency) {
+  final value = input.trim().replaceAll(',', '');
+  if (currency == Currency.LAK) {
+    if (!RegExp(r'^\d+$').hasMatch(value)) {
+      return null;
+    }
+    return int.tryParse(value);
+  }
+  final parts = value.split('.');
+  if (parts.length > 2 ||
+      parts.isEmpty ||
+      !RegExp(r'^\d*$').hasMatch(parts.first) ||
+      (parts.length == 2 && !RegExp(r'^\d{0,2}$').hasMatch(parts[1]))) {
+    return null;
+  }
+  final whole = BigInt.parse(parts.first.isEmpty ? '0' : parts.first);
+  final fraction = parts.length == 2 ? parts[1] : '';
+  return (whole * BigInt.from(100) +
+          BigInt.parse(fraction.padRight(2, '0')))
+      .toInt();
 }
 
 CurrencyAnalytics _analyticsData(int amount) => CurrencyAnalytics(
@@ -187,6 +245,7 @@ class _StubTransactionRepository implements TransactionRepository {
 
   final List<WalletTransaction> transactions;
   final Map<Currency, CurrencyAnalytics> analyticsByCurrency;
+  final List<WalletTransaction> savedTransactions = [];
 
   @override
   Future<bool> deleteTransaction(int id) async => false;
@@ -202,7 +261,9 @@ class _StubTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<void> saveTransaction(WalletTransaction transaction) async {}
+  Future<void> saveTransaction(WalletTransaction transaction) async {
+    savedTransactions.add(transaction);
+  }
 
   @override
   Stream<TransactionSummary> watchSummary(Currency currency, DateRange range) {
