@@ -1,7 +1,7 @@
 # Progress
 
 ## Current step
-Step 8: CSV + PDF export
+Step 9: Unit tests
 
 ## Done
 - [x] Step 1: project setup, pubspec.yaml, folder structure
@@ -11,12 +11,13 @@ Step 8: CSV + PDF export
 - [x] Step 5: Quick Add
 - [x] Step 6: History (free-text categories)
 - [x] Step 7: Analytics charts (currency-filtered)
+- [x] Step 8: CSV + PDF export
 
 ## Todo
-- [ ] Step 8: CSV + PDF export
 - [ ] Step 9: Unit tests
 
 ## Notes / decisions
+- Step 8 PDF verified by user (opening/closing balances and layout).
 - Amount stored as int (satang / cents / kip)
 - Added required Flutter dependencies and a minimal app entry point because the
   Step 1 setup files were missing from the workspace.
