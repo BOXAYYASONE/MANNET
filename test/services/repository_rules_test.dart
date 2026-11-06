@@ -90,10 +90,13 @@ void main() {
     expect(opening, 100000);
   });
 
-  test('WalletTransaction stores free-text category without a category relation',
+  test(
+      'WalletTransaction stores free-text category without a category relation',
       () {
-    final source = File('lib/models/wallet_transaction.dart').readAsStringSync();
-    final schema = File('lib/models/wallet_transaction.g.dart').readAsStringSync();
+    final source =
+        File('lib/models/wallet_transaction.dart').readAsStringSync();
+    final schema =
+        File('lib/models/wallet_transaction.g.dart').readAsStringSync();
 
     expect(RegExp(r'late\s+String\s+category\s*;').hasMatch(source), isTrue);
     expect(source, isNot(contains('IsarLink')));
@@ -139,8 +142,14 @@ class _InMemoryTransactionRepository implements TransactionRepository {
   final List<WalletTransaction> _transactions;
 
   @override
+  Future<void> clearTransactions() async {
+    _transactions.clear();
+  }
+
+  @override
   Future<bool> deleteTransaction(int id) async {
-    final index = _transactions.indexWhere((transaction) => transaction.id == id);
+    final index =
+        _transactions.indexWhere((transaction) => transaction.id == id);
     if (index == -1) {
       return false;
     }

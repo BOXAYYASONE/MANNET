@@ -220,4 +220,8 @@ class TransactionRepository {
   Future<bool> deleteTransaction(Id id) {
     return _isar.writeTxn(() => _isar.walletTransactions.delete(id));
   }
+
+  Future<void> clearTransactions() {
+    return _isar.writeTxn(() => _isar.walletTransactions.clear());
+  }
 }

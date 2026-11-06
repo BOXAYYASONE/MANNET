@@ -303,4 +303,7 @@ class _StubTransactionRepository implements TransactionRepository {
         : transactions.where((item) => item.currency == currency).toList();
     return Stream.value(results);
   }
+
+  @override
+  Future<void> clearTransactions() async {}
 }
