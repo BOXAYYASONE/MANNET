@@ -10,6 +10,7 @@ import '../utils/money_format.dart';
 import 'analytics_screen.dart';
 import 'export_screen.dart';
 import 'history_screen.dart';
+import 'profile_screen.dart';
 import 'quick_add_screen.dart';
 
 enum DashboardCurrencyFilter {
@@ -94,17 +95,6 @@ class DashboardScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            tooltip: 'History',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const HistoryScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.receipt_long_rounded),
-          ),
-          IconButton(
             tooltip: 'ເຮັດວຽກໃນໄລຍະຕໍ່ໄປ',
             onPressed: null,
             icon: const Icon(Icons.search_rounded),
@@ -124,22 +114,15 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'ພາບລວມກະເປົາ',
-                  style: TextStyle(
-                    color: Color(0xFF17201D),
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    height: 1.1,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
-              _UpToDate(),
-            ],
+          const Text(
+            'ພາບລວມກະເປົາ',
+            style: TextStyle(
+              color: Color(0xFF17201D),
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              height: 1.1,
+              letterSpacing: -0.3,
+            ),
           ),
           const SizedBox(height: 24),
           Row(
@@ -443,9 +426,16 @@ class _DashboardBottomNavigation extends StatelessWidget {
                 );
               },
             ),
-            const _BottomNavItem(
+            _BottomNavItem(
               icon: Icons.person_outline_rounded,
               label: 'Profile',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ProfileScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -490,36 +480,6 @@ class _BottomNavItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _UpToDate extends StatelessWidget {
-  const _UpToDate();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE7F7ED),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.circle, color: Color(0xFF24B56A), size: 8),
-          SizedBox(width: 6),
-          Text(
-            'ອັບເດດແລ້ວ',
-            style: TextStyle(
-              color: Color(0xFF167F4A),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
