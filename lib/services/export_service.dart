@@ -6,6 +6,7 @@ import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -32,6 +33,18 @@ class CurrencyReport {
   final int totalExpense;
 
   int get closingBalance => openingBalance + totalIncome - totalExpense;
+}
+
+class ExportSaveResult {
+  const ExportSaveResult({
+    required this.fileName,
+    required this.sharePath,
+    this.fullPath,
+  });
+
+  final String fileName;
+  final String sharePath;
+  final String? fullPath;
 }
 
 class PdfTransactionRow {
@@ -188,13 +201,12 @@ class ExportService {
     return const ListToCsvConverter(eol: '\r\n').convert(rows);
   }
 
-  Future<File> saveCsv(
+  Future<ExportSaveResult> saveCsv(
     Iterable<WalletTransaction> transactions, {
     Currency? currency,
     required DateTime from,
     required DateTime to,
   }) async {
-    final directory = await _exportDirectory();
     final currencyLabel = currency?.name ?? 'ALL';
     final fileName =
         'triwallet_${currencyLabel}_${_dateFilePart(from)}_${_dateFilePart(to)}.csv';
@@ -204,8 +216,32 @@ class ExportService {
       from: from,
       to: to,
     );
+    if (Platform.isAndroid) {
+      final saved = await FileSaver.instance.saveToDownloads(
+        name: fileName.substring(0, fileName.length - '.csv'.length),
+        bytes: Uint8List.fromList(csv.codeUnits),
+        fileExtension: 'csv',
+        mimeType: MimeType.csv,
+        subfolder: 'MNCK',
+      );
+      if (saved == null || saved.isEmpty) {
+        throw FileSystemException('Android file_saver returned no saved file.');
+      }
+      return ExportSaveResult(
+        fileName: fileName,
+        sharePath: saved,
+      );
+    }
+    final directory = await _exportDirectory();
     return File('${directory.path}${Platform.pathSeparator}$fileName')
-        .writeAsString(csv, flush: true);
+        .writeAsString(csv, flush: true)
+        .then(
+          (file) => ExportSaveResult(
+            fileName: fileName,
+            sharePath: file.path,
+            fullPath: file.path,
+          ),
+        );
   }
 
   Future<Uint8List> buildPdf(
@@ -255,7 +291,7 @@ class ExportService {
     return document.save();
   }
 
-  Future<File> savePdf(
+  Future<ExportSaveResult> savePdf(
     BuildContext context,
     Iterable<WalletTransaction> transactions, {
     Currency? currency,
@@ -271,30 +307,40 @@ class ExportService {
       to: to,
       openingBalances: openingBalances,
     );
-    final directory = await _exportDirectory();
     final currencyLabel = currency?.name ?? 'ALL';
     final fileName =
         'triwallet_report_${currencyLabel}_${_dateFilePart(from)}_${_dateFilePart(to)}.pdf';
+    if (Platform.isAndroid) {
+      final saved = await FileSaver.instance.saveToDownloads(
+        name: fileName.substring(0, fileName.length - '.pdf'.length),
+        bytes: bytes,
+        fileExtension: 'pdf',
+        mimeType: MimeType.pdf,
+        subfolder: 'MNCK',
+      );
+      if (saved == null || saved.isEmpty) {
+        throw FileSystemException('Android file_saver returned no saved file.');
+      }
+      return ExportSaveResult(
+        fileName: fileName,
+        sharePath: saved,
+      );
+    }
+    final directory = await _exportDirectory();
     return File('${directory.path}${Platform.pathSeparator}$fileName')
-        .writeAsBytes(bytes, flush: true);
+        .writeAsBytes(bytes, flush: true)
+        .then(
+          (file) => ExportSaveResult(
+            fileName: fileName,
+            sharePath: file.path,
+            fullPath: file.path,
+          ),
+        );
   }
 
   Future<Directory> _exportDirectory() async {
     if (Platform.isAndroid) {
-      final publicDownloads = Directory('/storage/emulated/0/Download/MNCK');
-      try {
-        await publicDownloads.create(recursive: true);
-        return publicDownloads;
-      } catch (_) {
-        final downloads = await getDownloadsDirectory();
-        if (downloads != null) {
-          final fallback = Directory(
-            '${downloads.path}${Platform.pathSeparator}MNCK',
-          );
-          await fallback.create(recursive: true);
-          return fallback;
-        }
-      }
+      throw UnsupportedError('Android uses file_saver.');
     }
 
     final documents = await getApplicationDocumentsDirectory();

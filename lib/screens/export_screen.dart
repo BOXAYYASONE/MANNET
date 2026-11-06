@@ -190,8 +190,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         from: _from,
         to: _to,
       );
-      _showMessage('CSV ບັນທຶກສຳເລັດ: ${file.path}');
-      await Share.shareXFiles([XFile(file.path)]);
+      final location = file.fullPath ?? 'Download/MNCK';
+      _showMessage(
+        'CSV ບັນທຶກສຳເລັດ: ${file.fileName} — $location',
+      );
+      try {
+        await Share.shareXFiles([XFile(file.sharePath)]);
+      } catch (_) {
+        _showMessage('ເປີດເມນູແບ່ງປັນ CSV ບໍ່ສຳເລັດ');
+      }
     } catch (error) {
       _showMessage('ສົ່ງອອກ CSV ບໍ່ສຳເລັດ: $error', isError: true);
     }
@@ -218,8 +225,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         to: _to,
         openingBalances: openingBalances,
       );
-      _showMessage('PDF ບັນທຶກສຳເລັດ: ${file.path}');
-      await Share.shareXFiles([XFile(file.path)]);
+      final location = file.fullPath ?? 'Download/MNCK';
+      _showMessage(
+        'PDF ບັນທຶກສຳເລັດ: ${file.fileName} — $location',
+      );
+      try {
+        await Share.shareXFiles([XFile(file.sharePath)]);
+      } catch (_) {
+        _showMessage('ເປີດເມນູແບ່ງປັນ PDF ບໍ່ສຳເລັດ');
+      }
     } catch (error) {
       _showMessage('ສົ່ງອອກ PDF ບໍ່ສຳເລັດ: $error', isError: true);
     }
